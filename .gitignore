@@ -1,0 +1,22 @@
+# System files
+.DS_Store
+.claude/
+
+# Progress files (temporary)
+*_progress.json
+geocoding_progress.json
+south_bay_geocoding_progress.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db

@@ -1,0 +1,7 @@
+rowid,poi_name,geography,longitude,latitude,parking_indicator
+1,Daikin Park,Houston,-95.355078,29.7573693,park
+5,Hilton Americas Valet and Self Parking,Houston,-95.3606615,29.7514407,parking
+38,Blvd Park,Houston,-95.41918,29.8041,park
+43,Hermann Park,Houston,-95.3887019,29.7142037,park
+70,Minute Maid Park-Centerfield Ent,Houston,-95.35636,29.75834,park
+95,"Valet, Memorial Hermann",Houston,-95.3965629,29.7142438,valet

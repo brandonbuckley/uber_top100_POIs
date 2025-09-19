@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top 100 POIs with PUDO Hotspots</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        .header {
+            background: #1f2937;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid #374151;
+        }
+        
+        .controls {
+            background: #2d3748;
+            padding: 1rem;
+            border-bottom: 1px solid #4a5568;
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .filter-group label {
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        #map {
+            height: calc(100vh - 200px);
+            width: 100%;
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            left: 10px;
+            background: rgba(26, 32, 44, 0.95);
+            color: #e2e8f0;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            border: 1px solid #4a5568;
+            z-index: 1000;
+            font-size: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 0 3px rgba(0,0,0,0.3);
+        }
+        
+        .legend-polygon {
+            width: 16px;
+            height: 16px;
+            border: 2px solid;
+            background: rgba(0,0,0,0.1);
+        }
+        
+        /* Geography colors */
+        .houston { background-color: #e74c3c; }
+        .san-francisco { background-color: #3498db; }
+        .south-bay { background-color: #2ecc71; }
+        
+        .houston-polygon { border-color: #e74c3c; }
+        .san-francisco-polygon { border-color: #3498db; }
+        .south-bay-polygon { border-color: #2ecc71; }
+        
+        /* Custom marker styling */
+        .custom-div-icon {
+            background: transparent !important;
+            border: none !important;
+        }
+        
+        .numbered-marker {
+            transition: transform 0.2s ease;
+            cursor: pointer;
+        }
+        
+        /* POI Navigation Controls - Integrated in Header */
+        .poi-navigation {
+            background: #374151;
+            padding: 1rem;
+            border-bottom: 1px solid #4a5568;
+            color: #e2e8f0;
+        }
+
+        .poi-nav-header {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #fff;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .compact-nav-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #2d3748;
+            padding: 8px 16px;
+            border-radius: 6px;
+        }
+
+        .nav-button {
+            background: #4a5568;
+            border: none;
+            color: #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s ease;
+        }
+
+        .nav-button:hover {
+            background: #2d3748;
+        }
+
+        .nav-button:disabled {
+            background: #2d3748;
+            color: #718096;
+            cursor: not-allowed;
+        }
+
+        .poi-info {
+            flex: 1;
+            text-align: center;
+            font-size: 12px;
+            color: #a0aec0;
+        }
+
+        .current-poi {
+            font-weight: 600;
+            color: #fff;
+        }
+        
+        .highlighted-marker {
+            transform: scale(1.3);
+            z-index: 1000;
+            filter: drop-shadow(0 0 8px #ffd700);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Top 100 POIs with PUDO Hotspots</h1>
+        <p>Interactive map showing Points of Interest and their corresponding Pick-up/Drop-off hotspots</p>
+    </div>
+    
+    <div class="controls">
+        <div class="filter-group">
+            <label>Geography Filter:</label>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="houston" checked>
+                    <label for="houston">Houston</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="san_francisco" checked>
+                    <label for="san_francisco">San Francisco</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="south_bay" checked>
+                    <label for="south_bay">South Bay</label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="filter-group">
+            <label>Layers:</label>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show_pois" checked>
+                    <label for="show_pois">POIs</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="show_pudo" checked>
+                    <label for="show_pudo">PUDO Hotspots</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POI Navigation Panel - Compact -->
+    <div class="poi-navigation" id="poi-navigation">
+        <div class="poi-nav-header">Navigate POIs</div>
+        <div class="compact-nav-container">
+            <div class="nav-controls">
+                <button class="nav-button" id="nav-prev" onclick="navigateCompactPOI(-1)">◀ Previous</button>
+                <div class="poi-info">
+                    <div class="current-poi" id="current-poi-display">Select a POI</div>
+                    <div id="current-poi-name">Click on map or use navigation</div>
+                </div>
+                <button class="nav-button" id="nav-next" onclick="navigateCompactPOI(1)">Next ▶</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+    
+    <div class="legend">
+        <h4 style="margin-top: 0; margin-bottom: 10px;">Legend</h4>
+        <div class="legend-item">
+            <div class="legend-color houston"></div>
+            <span>Houston POIs</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color san-francisco"></div>
+            <span>San Francisco POIs</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color south-bay"></div>
+            <span>South Bay POIs</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-polygon houston-polygon"></div>
+            <span>PUDO Hotspots</span>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([37.7749, -122.4194], 10); // Default to San Francisco area
+        
+        // POI Navigation state
+        let currentPOI = {
+            'Houston': 0,
+            'San_Francisco': 0,
+            'South_Bay': 0
+        };
+        
+        let poiData = {}; // Will store POI data by geography
+        let currentHighlightedMarker = null;
+        let currentHighlightedPUDO = null;
+        let currentActiveGeography = null; // Track which geography is currently being navigated
+        
+        // Define base layers
+        const darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap contributors, © CARTO',
+            maxZoom: 19
+        });
+        
+        const streetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        });
+        
+        const satelliteMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+            maxZoom: 19
+        });
+        
+        // Add default street map layer
+        streetMap.addTo(map);
+        
+        // Create base layers object for layer control
+        const baseLayers = {
+            "Street Map": streetMap,
+            "Dark": darkMap,
+            "Satellite": satelliteMap
+        };
+        
+        // Global variables to store layers
+        let poiLayers = {};
+        let pudoLayers = {};
+        let allPOIs = [];
+        let allPUDOs = [];
+        
+        // Color mapping for geographies
+        const geographyColors = {
+            'Houston': '#e74c3c',
+            'San_Francisco': '#3498db', 
+            'South_Bay': '#2ecc71'
+        };
+        
+        // Load and process POI data
+        async function loadPOIData() {
+            try {
+                const response = await fetch('POIs_PUDO_Hotspots_20250910/Top_100_POIs.geojson');
+                const data = await response.json();
+                allPOIs = data.features;
+                
+                // Group POIs by geography
+                const grouped = {};
+                allPOIs.forEach(poi => {
+                    const geog = poi.properties.geog;
+                    if (!grouped[geog]) grouped[geog] = [];
+                    grouped[geog].push(poi);
+                });
+                
+                // Store POI data for navigation
+                poiData = grouped;
+                
+                // Create layer for each geography
+                Object.keys(grouped).forEach(geog => {
+                    const geoJsonLayer = L.geoJSON(grouped[geog], {
+                        pointToLayer: (feature, latlng) => {
+                            // Create a numbered marker
+                            const number = feature.properties.rowid;
+                            const icon = L.divIcon({
+                                html: `<div class="numbered-marker" style="
+                                    background-color: ${geographyColors[geog]};
+                                    color: white;
+                                    border: 2px solid #1a1a1a;
+                                    border-radius: 50%;
+                                    width: 24px;
+                                    height: 24px;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    font-size: 11px;
+                                    font-weight: bold;
+                                    box-shadow: 0 0 8px rgba(0,0,0,0.8), 0 0 3px rgba(255,255,255,0.3);
+                                ">${number}</div>`,
+                                className: 'custom-div-icon',
+                                iconSize: [24, 24],
+                                iconAnchor: [12, 12]
+                            });
+                            return L.marker(latlng, { icon: icon });
+                        },
+                        onEachFeature: (feature, layer) => {
+                            layer.bindPopup(`
+                                <h4>${feature.properties.name}</h4>
+                                <p><strong>Geography:</strong> ${feature.properties.geog.replace('_', ' ')}</p>
+                                <p><strong>Row ID:</strong> ${feature.properties.rowid}</p>
+                            `);
+
+                            // Add click handler to set as current POI for navigation
+                            layer.on('click', function(e) {
+                                selectPOI(feature.properties.geog, feature.properties.rowid);
+                            });
+
+                            // Add hover effects
+                            layer.on('mouseover', function(e) {
+                                const markerElement = this.getElement();
+                                if (markerElement) {
+                                    const markerDiv = markerElement.querySelector('.numbered-marker');
+                                    if (markerDiv) {
+                                        markerDiv.style.transform = 'scale(1.2)';
+                                        markerDiv.style.zIndex = '1000';
+                                    }
+                                }
+                                highlightPUDO(feature.properties.name);
+                            });
+
+                            layer.on('mouseout', function(e) {
+                                const markerElement = this.getElement();
+                                if (markerElement) {
+                                    const markerDiv = markerElement.querySelector('.numbered-marker');
+                                    if (markerDiv) {
+                                        markerDiv.style.transform = 'scale(1)';
+                                        markerDiv.style.zIndex = '';
+                                    }
+                                }
+                                resetPUDOHighlight(feature.properties.name);
+                            });
+                        }
+                    });
+                    
+                    poiLayers[geog] = geoJsonLayer;
+                    geoJsonLayer.addTo(map);
+                });
+                
+                // Initialize navigation after data is loaded
+                setTimeout(() => {
+                    initializeNavigation();
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error loading POI data:', error);
+            }
+        }
+        
+        // Load and process PUDO data
+        async function loadPUDOData() {
+            try {
+                const response = await fetch('POIs_PUDO_Hotspots_20250910/PUDO_Hotspots.geojson');
+                const data = await response.json();
+                allPUDOs = data.features;
+                
+                // Group PUDO hotspots by geography
+                const grouped = {};
+                allPUDOs.forEach(pudo => {
+                    const geog = pudo.properties.geog;
+                    if (!grouped[geog]) grouped[geog] = [];
+                    grouped[geog].push(pudo);
+                });
+                
+                // Create layer for each geography
+                Object.keys(grouped).forEach(geog => {
+                    const geoJsonLayer = L.geoJSON(grouped[geog], {
+                        style: {
+                            color: geographyColors[geog],
+                            weight: 2,
+                            opacity: 0.8,
+                            fillColor: geographyColors[geog],
+                            fillOpacity: 0.1
+                        },
+                        onEachFeature: (feature, layer) => {
+                            layer.bindPopup(`
+                                <h4>PUDO Hotspot</h4>
+                                <p><strong>POI:</strong> ${feature.properties.name}</p>
+                                <p><strong>Geography:</strong> ${feature.properties.geog.replace('_', ' ')}</p>
+                                <p><strong>Row ID:</strong> ${feature.properties.rowid}</p>
+                            `);
+                            
+                            // Store reference for highlighting
+                            layer.poiName = feature.properties.name;
+                        }
+                    });
+                    
+                    pudoLayers[geog] = geoJsonLayer;
+                    geoJsonLayer.addTo(map);
+                });
+                
+            } catch (error) {
+                console.error('Error loading PUDO data:', error);
+            }
+        }
+        
+        // Helper functions for highlighting
+        function highlightPUDO(poiName) {
+            Object.values(pudoLayers).forEach(layer => {
+                layer.eachLayer(l => {
+                    if (l.poiName === poiName && l !== currentHighlightedPUDO) {
+                        // Only apply hover highlight if this isn't the currently selected PUDO
+                        l.setStyle({
+                            weight: 4,
+                            opacity: 1,
+                            fillOpacity: 0.3
+                        });
+                    }
+                });
+            });
+        }
+
+        function resetPUDOHighlight(poiName) {
+            Object.values(pudoLayers).forEach(layer => {
+                layer.eachLayer(l => {
+                    if (l.poiName === poiName && l !== currentHighlightedPUDO) {
+                        // Only reset to default if this isn't the currently selected PUDO
+                        l.setStyle({
+                            weight: 2,
+                            opacity: 0.8,
+                            fillOpacity: 0.1
+                        });
+                    }
+                });
+            });
+        }
+
+        // Function to highlight PUDO persistently when POI is selected
+        function highlightSelectedPUDO(poiName, rowid) {
+            // Reset previous persistent highlight
+            if (currentHighlightedPUDO) {
+                // Restore original geography-based color
+                const geography = currentHighlightedPUDO.feature ? currentHighlightedPUDO.feature.properties.geog : null;
+                const originalColor = geography ? geographyColors[geography] : '#666';
+
+                currentHighlightedPUDO.setStyle({
+                    weight: 2,
+                    opacity: 0.8,
+                    fillOpacity: 0.1,
+                    color: originalColor,
+                    fillColor: originalColor
+                });
+                currentHighlightedPUDO = null;
+            }
+
+            // Find and highlight the PUDO with matching name or rowid
+            Object.values(pudoLayers).forEach(layer => {
+                layer.eachLayer(l => {
+                    if (l.poiName === poiName || (l.feature && l.feature.properties.rowid === rowid)) {
+                        l.setStyle({
+                            weight: 4,
+                            opacity: 1,
+                            fillOpacity: 0.4,
+                            color: '#ffd700', // Gold color for selected state
+                            fillColor: '#ffd700'
+                        });
+                        currentHighlightedPUDO = l;
+                    }
+                });
+            });
+        }
+        
+        // Filter functions
+        function updateMapLayers() {
+            const houstonChecked = document.getElementById('houston').checked;
+            const sfChecked = document.getElementById('san_francisco').checked;
+            const sbChecked = document.getElementById('south_bay').checked;
+            const poisChecked = document.getElementById('show_pois').checked;
+            const pudoChecked = document.getElementById('show_pudo').checked;
+            
+            // Update POI layers
+            Object.keys(poiLayers).forEach(geog => {
+                const shouldShow = poisChecked && (
+                    (geog === 'Houston' && houstonChecked) ||
+                    (geog === 'San_Francisco' && sfChecked) ||
+                    (geog === 'South_Bay' && sbChecked)
+                );
+                
+                if (shouldShow) {
+                    map.addLayer(poiLayers[geog]);
+                } else {
+                    map.removeLayer(poiLayers[geog]);
+                }
+            });
+            
+            // Update PUDO layers
+            Object.keys(pudoLayers).forEach(geog => {
+                const shouldShow = pudoChecked && (
+                    (geog === 'Houston' && houstonChecked) ||
+                    (geog === 'San_Francisco' && sfChecked) ||
+                    (geog === 'South_Bay' && sbChecked)
+                );
+                
+                if (shouldShow) {
+                    map.addLayer(pudoLayers[geog]);
+                } else {
+                    map.removeLayer(pudoLayers[geog]);
+                }
+            });
+            
+            // Adjust map view based on visible layers
+            fitMapToVisibleLayers();
+            
+            // Update navigation visibility based on geography filters
+            updateNavigationVisibility();
+        }
+        
+        function fitMapToVisibleLayers() {
+            const houstonChecked = document.getElementById('houston').checked;
+            const sfChecked = document.getElementById('san_francisco').checked;
+            const sbChecked = document.getElementById('south_bay').checked;
+            
+            // Define bounds for each geography
+            const bounds = {
+                'Houston': [[29.6, -95.7], [29.9, -95.0]],
+                'San_Francisco': [[37.6, -122.6], [37.9, -122.3]],
+                'South_Bay': [[37.2, -122.2], [37.6, -121.8]]
+            };
+            
+            let allBounds = [];
+            if (houstonChecked) allBounds.push(bounds.Houston);
+            if (sfChecked) allBounds.push(bounds.San_Francisco);
+            if (sbChecked) allBounds.push(bounds.South_Bay);
+            
+            if (allBounds.length > 0) {
+                // Calculate combined bounds
+                let minLat = Math.min(...allBounds.map(b => b[0][0]));
+                let maxLat = Math.max(...allBounds.map(b => b[1][0]));
+                let minLng = Math.min(...allBounds.map(b => b[0][1]));
+                let maxLng = Math.max(...allBounds.map(b => b[1][1]));
+                
+                map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [20, 20] });
+            }
+        }
+        
+        // Function to select a POI by clicking on it
+        function selectPOI(geography, rowid) {
+            if (!poiData[geography]) return;
+
+            // Find the index of the clicked POI
+            const poiIndex = poiData[geography].findIndex(poi => poi.properties.rowid === rowid);
+
+            if (poiIndex !== -1) {
+                // Update the current POI index for this geography
+                currentPOI[geography] = poiIndex;
+                currentActiveGeography = geography;
+
+                // Get the POI data for highlighting PUDO
+                const poi = poiData[geography][poiIndex];
+
+                // Update navigation UI and highlight POI
+                highlightCurrentPOI(geography);
+                updateCompactNavigationUI();
+                focusOnCurrentPOI(geography);
+
+                // Highlight the associated PUDO hexagon
+                highlightSelectedPUDO(poi.properties.name, poi.properties.rowid);
+            }
+        }
+
+        // Compact navigation function that works with currently selected geography
+        function navigateCompactPOI(direction) {
+            if (!currentActiveGeography || !poiData[currentActiveGeography] || poiData[currentActiveGeography].length === 0) {
+                // If no geography is active, try to find the first available geography with visible POIs
+                const availableGeographies = ['Houston', 'San_Francisco', 'South_Bay'];
+                for (let geog of availableGeographies) {
+                    const isVisible = document.getElementById(geog.toLowerCase().replace('_', '_')).checked;
+                    if (isVisible && poiData[geog] && poiData[geog].length > 0) {
+                        currentActiveGeography = geog;
+                        currentPOI[geog] = 0; // Start from first POI
+                        break;
+                    }
+                }
+
+                if (!currentActiveGeography) return;
+            }
+
+            const geography = currentActiveGeography;
+            const maxIndex = poiData[geography].length - 1;
+            currentPOI[geography] += direction;
+
+            // Wrap around
+            if (currentPOI[geography] > maxIndex) {
+                currentPOI[geography] = 0;
+            } else if (currentPOI[geography] < 0) {
+                currentPOI[geography] = maxIndex;
+            }
+
+            highlightCurrentPOI(geography);
+            updateCompactNavigationUI();
+            focusOnCurrentPOI(geography);
+
+            // Highlight the associated PUDO hexagon
+            if (poiData[geography] && poiData[geography][currentPOI[geography]]) {
+                const poi = poiData[geography][currentPOI[geography]];
+                highlightSelectedPUDO(poi.properties.name, poi.properties.rowid);
+            }
+        }
+
+        // Update the compact navigation UI
+        function updateCompactNavigationUI() {
+            if (!currentActiveGeography || !poiData[currentActiveGeography]) {
+                document.getElementById('current-poi-display').textContent = 'Select a POI';
+                document.getElementById('current-poi-name').textContent = 'Click on map or use navigation';
+                return;
+            }
+
+            const geography = currentActiveGeography;
+            const currentIndex = currentPOI[geography];
+            const poi = poiData[geography][currentIndex];
+            const total = poiData[geography].length;
+
+            // Update display
+            const geographyDisplayName = geography.replace('_', ' ');
+            document.getElementById('current-poi-display').textContent =
+                `${geographyDisplayName} POI ${currentIndex + 1}/${total}`;
+            document.getElementById('current-poi-name').textContent =
+                poi ? poi.properties.name || 'Unknown POI' : 'Loading...';
+
+            // Update button states
+            const prevButton = document.getElementById('nav-prev');
+            const nextButton = document.getElementById('nav-next');
+            if (prevButton) prevButton.disabled = false;
+            if (nextButton) nextButton.disabled = false;
+        }
+
+        function highlightCurrentPOI(geography) {
+            // Remove previous highlight
+            if (currentHighlightedMarker) {
+                currentHighlightedMarker.getElement().classList.remove('highlighted-marker');
+            }
+
+            if (!poiData[geography] || !poiLayers[geography]) return;
+
+            const currentIndex = currentPOI[geography];
+            const poi = poiData[geography][currentIndex];
+
+            // Find and highlight the current marker
+            poiLayers[geography].eachLayer(layer => {
+                if (layer.feature && layer.feature.properties.rowid === poi.properties.rowid) {
+                    const element = layer.getElement();
+                    if (element) {
+                        element.classList.add('highlighted-marker');
+                        currentHighlightedMarker = layer;
+                    }
+                }
+            });
+        }
+        
+        function focusOnCurrentPOI(geography) {
+            if (!poiData[geography]) return;
+            
+            const currentIndex = currentPOI[geography];
+            const poi = poiData[geography][currentIndex];
+            
+            if (poi && poi.geometry && poi.geometry.coordinates) {
+                const [lng, lat] = poi.geometry.coordinates;
+                map.setView([lat, lng], 16, { animate: true });
+            }
+        }
+        
+        function updateNavigationVisibility() {
+            const houstonChecked = document.getElementById('houston').checked;
+            const sfChecked = document.getElementById('san_francisco').checked;
+            const sbChecked = document.getElementById('south_bay').checked;
+
+            // Hide entire navigation panel if no geographies are selected
+            const anyGeoSelected = houstonChecked || sfChecked || sbChecked;
+            const navPanel = document.getElementById('poi-navigation');
+            if (navPanel) {
+                navPanel.style.display = anyGeoSelected ? 'block' : 'none';
+            }
+
+            // Reset active geography if it's no longer visible
+            if (currentActiveGeography) {
+                const isCurrentGeoVisible =
+                    (currentActiveGeography === 'Houston' && houstonChecked) ||
+                    (currentActiveGeography === 'San_Francisco' && sfChecked) ||
+                    (currentActiveGeography === 'South_Bay' && sbChecked);
+
+                if (!isCurrentGeoVisible) {
+                    currentActiveGeography = null;
+                    updateCompactNavigationUI();
+                }
+            }
+        }
+        
+        function initializeNavigation() {
+            // Set initial navigation visibility and compact UI
+            updateNavigationVisibility();
+            updateCompactNavigationUI();
+        }
+        
+        // Event listeners for controls
+        document.addEventListener('DOMContentLoaded', function() {
+            // Geography filters
+            ['houston', 'san_francisco', 'south_bay'].forEach(id => {
+                document.getElementById(id).addEventListener('change', updateMapLayers);
+            });
+            
+            // Layer toggles
+            ['show_pois', 'show_pudo'].forEach(id => {
+                document.getElementById(id).addEventListener('change', updateMapLayers);
+            });
+            
+            // Add layer control for base layers
+            L.control.layers(baseLayers).addTo(map);
+            
+            // Load data
+            loadPOIData();
+            loadPUDOData();
+        });
+    </script>
+</body>
+</html>

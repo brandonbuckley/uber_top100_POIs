@@ -366,10 +366,12 @@
                             return L.marker(latlng, { icon: icon });
                         },
                         onEachFeature: (feature, layer) => {
+                            const [lng, lat] = feature.geometry.coordinates;
                             layer.bindPopup(`
                                 <h4>${feature.properties.name}</h4>
                                 <p><strong>Geography:</strong> ${feature.properties.geog.replace('_', ' ')}</p>
                                 <p><strong>Row ID:</strong> ${feature.properties.rowid}</p>
+                                <p><strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
                             `);
 
                             // Add click handler to set as current POI for navigation
@@ -444,11 +446,24 @@
                             fillOpacity: 0.1
                         },
                         onEachFeature: (feature, layer) => {
+                            // Calculate center coordinates for polygon/multipolygon
+                            let centerLat, centerLng;
+                            if (feature.geometry.type === 'Polygon') {
+                                const bounds = L.geoJSON(feature).getBounds();
+                                centerLat = bounds.getCenter().lat;
+                                centerLng = bounds.getCenter().lng;
+                            } else if (feature.geometry.type === 'MultiPolygon') {
+                                const bounds = L.geoJSON(feature).getBounds();
+                                centerLat = bounds.getCenter().lat;
+                                centerLng = bounds.getCenter().lng;
+                            }
+
                             layer.bindPopup(`
                                 <h4>PUDO Hotspot</h4>
                                 <p><strong>POI:</strong> ${feature.properties.name}</p>
                                 <p><strong>Geography:</strong> ${feature.properties.geog.replace('_', ' ')}</p>
                                 <p><strong>Row ID:</strong> ${feature.properties.rowid}</p>
+                                <p><strong>Center Coordinates:</strong> ${centerLat.toFixed(6)}, ${centerLng.toFixed(6)}</p>
                             `);
                             
                             // Store reference for highlighting
